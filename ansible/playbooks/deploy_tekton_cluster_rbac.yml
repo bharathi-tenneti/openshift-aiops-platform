@@ -1,0 +1,105 @@
+---
+# Deploy Tekton Model Training ClusterRole/ClusterRoleBinding
+# Implements Hybrid Management Model (ADR-030, ADR-053)
+#
+# Purpose: Deploy cluster-scoped RBAC for Tekton model training pipelines
+# Reason: Namespaced ArgoCD cannot manage ClusterRole/ClusterRoleBinding
+# Pattern: Cluster-scoped via Ansible, namespaced resources via ArgoCD
+
+- name: Deploy Tekton Model Training Cluster-Scoped RBAC
+  hosts: localhost
+  gather_facts: false
+  vars:
+    pattern_namespace: self-healing-platform
+    tekton_service_account: pipeline
+
+  tasks:
+    - name: Verify cluster connectivity
+      kubernetes.core.k8s_info:
+        kind: Namespace
+        name: "{{ pattern_namespace }}"
+      register: namespace_check
+      failed_when: namespace_check.resources | length == 0
+
+    - name: Create ClusterRole for model-training-pipeline
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: model-training-pipeline
+            labels:
+              app.kubernetes.io/name: model-training-pipeline
+              app.kubernetes.io/part-of: model-training
+              deployed-by: ansible
+          rules:
+            # NotebookValidationJob management
+            - apiGroups: ["mlops.mlops.dev"]
+              resources: ["notebookvalidationjobs"]
+              verbs: ["create", "get", "list", "watch", "delete"]
+
+            # InferenceService management (restart pods)
+            - apiGroups: ["serving.kserve.io"]
+              resources: ["inferenceservices"]
+              verbs: ["get", "list", "watch"]
+
+            # Pod management (for restarting InferenceService)
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: ["get", "list", "watch", "delete"]
+
+            # Pod logs (for debugging)
+            - apiGroups: [""]
+              resources: ["pods/log"]
+              verbs: ["get", "list"]
+
+            # PipelineRun management
+            - apiGroups: ["tekton.dev"]
+              resources: ["pipelineruns", "taskruns"]
+              verbs: ["create", "get", "list", "watch"]
+
+    - name: Create ClusterRoleBinding for model-training-pipeline
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: "model-training-pipeline-{{ pattern_namespace }}"
+            labels:
+              app.kubernetes.io/name: model-training-pipeline-binding
+              app.kubernetes.io/part-of: model-training
+              deployed-by: ansible
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: model-training-pipeline
+          subjects:
+            - kind: ServiceAccount
+              name: "{{ tekton_service_account }}"
+              namespace: "{{ pattern_namespace }}"
+
+    - name: Verify RBAC deployment
+      kubernetes.core.k8s_info:
+        api_version: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        name: model-training-pipeline
+      register: clusterrole_check
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ✅ Tekton Model Training RBAC deployment complete!
+
+          Deployed resources:
+          - ClusterRole: model-training-pipeline
+          - ClusterRoleBinding: model-training-pipeline-{{ pattern_namespace }}
+
+          Service Account: {{ tekton_service_account }}
+          Namespace: {{ pattern_namespace }}
+
+          Next steps:
+          1. Verify ArgoCD can now sync: oc get application.argoproj.io self-healing-platform -n self-healing-platform-hub
+          2. Check Tekton resources deployed: oc get tasks,pipelines,cronjobs -n {{ pattern_namespace }}
+          3. Test pipeline: Create a manual PipelineRun

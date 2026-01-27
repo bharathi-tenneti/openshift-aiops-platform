@@ -174,8 +174,11 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 {{- end }}
 
+{{- if .Values.rbac.clusterScoped.enabled }}
 ---
 # ClusterRole: Model Training Pipeline Permissions
+# ⚠️ Only deployed when rbac.clusterScoped.enabled=true
+# Default: Deployed via Ansible (Hybrid Management Model - ADR-030)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -213,6 +216,8 @@ rules:
 
 ---
 # ClusterRoleBinding: Bind pipeline permissions to service account
+# ⚠️ Only deployed when rbac.clusterScoped.enabled=true
+# Default: Deployed via Ansible (Hybrid Management Model - ADR-030)
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -230,5 +235,6 @@ subjects:
   - kind: ServiceAccount
     name: {{ .Values.tekton.modelTraining.serviceAccount | default "pipeline" }}
     namespace: {{ .Values.main.namespace }}
+{{- end }}
 
 {{- end }}
