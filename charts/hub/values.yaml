@@ -404,8 +404,10 @@ coordinationEngine:
     enabled: true
     namespace: self-healing-platform
     predictorPort: 8080  # Port for KServe predictors in RawDeployment mode
-    anomalyDetectorService: anomaly-detector-predictor
-    predictiveAnalyticsService: predictive-analytics-predictor
+    # Use stable services (ClusterIP) instead of headless services
+    # See: charts/hub/templates/model-serving-services.yaml
+    anomalyDetectorService: anomaly-detector-stable
+    predictiveAnalyticsService: predictive-analytics-stable
     timeout: "10s"
 
   # ArgoCD Integration

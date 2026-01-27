@@ -1,0 +1,62 @@
+{{- if .Values.modelServing.enabled }}
+---
+# Stable ClusterIP Service for Anomaly Detector
+# Purpose: Provides stable DNS endpoint for RawDeployment InferenceServices
+# Issue: RawDeployment creates headless services (ClusterIP: None)
+# Solution: This service provides a stable ClusterIP that routes to predictor pods
+# Used by: Coordination Engine, MCP Server
+apiVersion: v1
+kind: Service
+metadata:
+  name: anomaly-detector-stable
+  namespace: {{ .Values.main.namespace }}
+  labels:
+    app.kubernetes.io/name: anomaly-detector
+    app.kubernetes.io/component: model-serving
+    app.kubernetes.io/part-of: {{ include "self-healing-platform.name" . }}
+    serving.kserve.io/inferenceservice: anomaly-detector
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    description: "Stable service endpoint for anomaly-detector InferenceService (RawDeployment mode)"
+spec:
+  type: ClusterIP
+  selector:
+    serving.kserve.io/inferenceservice: anomaly-detector
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  sessionAffinity: None
+
+---
+# Stable ClusterIP Service for Predictive Analytics
+# Purpose: Provides stable DNS endpoint for RawDeployment InferenceServices
+# Issue: RawDeployment creates headless services (ClusterIP: None)
+# Solution: This service provides a stable ClusterIP that routes to predictor pods
+# Used by: Coordination Engine, MCP Server
+apiVersion: v1
+kind: Service
+metadata:
+  name: predictive-analytics-stable
+  namespace: {{ .Values.main.namespace }}
+  labels:
+    app.kubernetes.io/name: predictive-analytics
+    app.kubernetes.io/component: model-serving
+    app.kubernetes.io/part-of: {{ include "self-healing-platform.name" . }}
+    serving.kserve.io/inferenceservice: predictive-analytics
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    description: "Stable service endpoint for predictive-analytics InferenceService (RawDeployment mode)"
+spec:
+  type: ClusterIP
+  selector:
+    serving.kserve.io/inferenceservice: predictive-analytics
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  sessionAffinity: None
+
+{{- end }}
