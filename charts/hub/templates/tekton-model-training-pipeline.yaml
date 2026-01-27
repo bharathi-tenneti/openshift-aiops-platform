@@ -513,6 +513,13 @@ spec:
       type: string
       default: "true"
       description: "Run health checks before deployment"
+    - name: git-url
+      type: string
+      description: "Git repository URL"
+    - name: git-ref
+      type: string
+      default: "main"
+      description: "Git branch/tag/commit"
 
   tasks:
     # Task 1: Train model using NotebookValidationJob
@@ -526,6 +533,10 @@ spec:
           value: $(params.notebook-path)
         - name: data-source
           value: $(params.data-source)
+        - name: git-url
+          value: $(params.git-url)
+        - name: git-ref
+          value: $(params.git-ref)
 
     # Task 2: Health check (only if enabled)
     - name: health-check
