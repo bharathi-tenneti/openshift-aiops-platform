@@ -406,8 +406,10 @@ coordinationEngine:
     predictorPort: 8080  # Port for KServe predictors in RawDeployment mode
     # Use stable services (ClusterIP) instead of headless services
     # See: charts/hub/templates/model-serving-services.yaml
-    anomalyDetectorService: anomaly-detector-stable
-    predictiveAnalyticsService: predictive-analytics-stable
+    anomalyDetectorService: anomaly-detector-stable  # Service DNS name
+    anomalyDetectorModel: anomaly-detector  # Model name in KServe API endpoint
+    predictiveAnalyticsService: predictive-analytics-stable  # Service DNS name
+    predictiveAnalyticsModel: predictive-analytics  # Model name in KServe API endpoint
     timeout: "10s"
 
   # ArgoCD Integration

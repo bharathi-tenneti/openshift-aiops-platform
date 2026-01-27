@@ -95,8 +95,12 @@ spec:
           value: {{ .Values.coordinationEngine.kserve.predictorPort | default "8080" | quote }}
         - name: KSERVE_ANOMALY_DETECTOR_SERVICE
           value: {{ .Values.coordinationEngine.kserve.anomalyDetectorService | default "anomaly-detector-predictor" | quote }}
+        - name: KSERVE_ANOMALY_DETECTOR_MODEL
+          value: {{ .Values.coordinationEngine.kserve.anomalyDetectorModel | default "anomaly-detector" | quote }}
         - name: KSERVE_PREDICTIVE_ANALYTICS_SERVICE
           value: {{ .Values.coordinationEngine.kserve.predictiveAnalyticsService | default "predictive-analytics-predictor" | quote }}
+        - name: KSERVE_PREDICTIVE_ANALYTICS_MODEL
+          value: {{ .Values.coordinationEngine.kserve.predictiveAnalyticsModel | default "predictive-analytics" | quote }}
         - name: KSERVE_TIMEOUT
           value: {{ .Values.coordinationEngine.kserve.timeout | default "10s" | quote }}
         {{- end }}
