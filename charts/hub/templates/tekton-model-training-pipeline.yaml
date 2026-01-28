@@ -145,11 +145,27 @@ spec:
         )
 
         # Add GPU resources and tolerations for predictive-analytics model
+        # Using v1.0.6+ native CRD support for tolerations, nodeSelector, and affinity
         if [ "$NEEDS_GPU" = "true" ]; then
-          # Insert GPU limit under resources.limits
-          JOB_YAML=$(echo "$JOB_YAML" | sed '/cpu: "4000m"/a\                nvidia.com/gpu: "1"')
-          # Add tolerations section before timeout
-          JOB_YAML=$(echo "$JOB_YAML" | sed '/timeout:/i\            tolerations:\n              - key: nvidia.com/gpu\n                operator: Exists\n                effect: NoSchedule')
+          # Build GPU config block (v1.0.6+ native support)
+          GPU_CONFIG='            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2000m"
+                nvidia.com/gpu: "1"
+              limits:
+                memory: "8Gi"
+                cpu: "4000m"
+                nvidia.com/gpu: "1"
+            tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule
+            nodeSelector:
+              nvidia.com/gpu.present: "true"'
+
+          # Replace the resources section with GPU-enabled config
+          JOB_YAML=$(echo "$JOB_YAML" | sed '/resources:/,/cpu: "4000m"/c\'"$GPU_CONFIG")
         fi
 
         # Apply the job

@@ -4,11 +4,11 @@ kind: Kustomization
 resources:
   - ../../base
 
-# Override image for OCP 4.18 - using universal v1.0.5 release
+# Override image for OCP 4.18 - using universal v1.0.6 release
 images:
   - name: controller
     newName: quay.io/takinosh/jupyter-notebook-validator-operator
-    newTag: 1.0.5
+    newTag: 1.0.6
 
 # Disable webhooks by removing webhook-related resources
 patches:

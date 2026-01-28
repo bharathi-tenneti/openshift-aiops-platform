@@ -2,7 +2,7 @@
 
 **Status:** IMPLEMENTED
 **Date:** 2025-11-18
-**Updated:** 2026-01-26 (Upgraded to v1.0.5 with ArgoCD integration, model validation, and exit code validation)
+**Updated:** 2026-01-28 (Upgraded to v1.0.6 with GPU toleration support for pod scheduling)
 **Decision Makers:** Architecture Team, ML Engineering
 **Consulted:** DevOps Team, Platform Engineering
 **Informed:** Operations Team, Data Science Team
@@ -176,6 +176,62 @@ spec:
 3. **Artifact Persistence**: Maintain validation artifacts and logs
 4. **Model Versioning**: Track model versions across multiple training runs
 5. **Shared Storage**: Enable multiple notebooks to access common model repository
+
+### v1.0.6 Release (2026-01-28)
+
+**Operator Version**: v1.0.6 (universal release for OpenShift 4.18/4.19/4.20)
+
+#### Pod Scheduling Support (ADR-054)
+
+The v1.0.6 release introduces full Kubernetes-native pod scheduling capabilities, enabling GPU node scheduling for ML training workloads.
+
+**New Features**:
+- **Tolerations**: Full Kubernetes-native toleration support for tainted nodes (e.g., GPU nodes)
+- **NodeSelector**: Label-based node selection for targeting specific node pools
+- **Affinity**: Advanced node/pod affinity and anti-affinity rules for sophisticated scheduling
+
+**Use Cases Enabled**:
+- GPU node scheduling for ML training workloads (predictive-analytics model)
+- High-memory node pools for resource-intensive notebooks
+- Spot/preemptible instance cost optimization
+- Multi-tenant cluster team isolation
+
+**CRD Fields Added**:
+- `spec.podConfig.tolerations` - Array of Kubernetes tolerations
+- `spec.podConfig.nodeSelector` - Map of node selector labels
+- `spec.podConfig.affinity` - Full affinity configuration
+
+**Example Configuration**:
+```yaml
+podConfig:
+  resources:
+    requests:
+      nvidia.com/gpu: "1"
+    limits:
+      nvidia.com/gpu: "1"
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  nodeSelector:
+    nvidia.com/gpu.present: "true"
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: nvidia.com/gpu.memory
+                operator: Gt
+                values:
+                  - "16384"
+```
+
+**Sample Manifests**:
+- GPU scheduling example: `k8s/operators/jupyter-notebook-validator/samples/predictive-analytics-validation-job.yaml`
+- See upstream repository for additional examples: high-memory nodes, spot instances, multi-tenant isolation
+
+**Architecture Reference**: See ADR-054 (upstream) for complete architectural decision and implementation details.
 
 ### v1.0.5 Enhancements (2026-01-26)
 
@@ -365,7 +421,7 @@ comparisonConfig:
 
 #### Integration Benefits
 
-The v1.0.5 features solve critical pain points in the platform:
+The v1.0.5 and v1.0.6 features solve critical pain points in the platform:
 
 **Before v1.0.5**:
 - Manual pod deletion required for InferenceServices after model training
@@ -373,19 +429,23 @@ The v1.0.5 features solve critical pain points in the platform:
 - Model integration issues discovered in production
 - Silent notebook failures could pass validation
 - ML metric variations caused false positive failures
+- GPU workloads couldn't schedule on tainted GPU nodes
 
-**After v1.0.5**:
+**After v1.0.5 + v1.0.6**:
 - ✅ Automatic InferenceService reload when notebooks succeed (no manual intervention)
 - ✅ Full GitOps compliance with ArgoCD health checks and sync waves
 - ✅ Model validation gates prevent broken deployments
 - ✅ Silent failure detection catches logical errors
 - ✅ Smart comparison strategies handle ML non-determinism
 - ✅ Comprehensive notification integration (Slack, email, PagerDuty)
+- ✅ **NEW v1.0.6**: GPU node scheduling with native tolerations and affinity support
+- ✅ **NEW v1.0.6**: Predictive-analytics model training no longer stuck in Pending state
 
 **Cross-Reference**:
 - See ADR-043 (Deployment Stability & Health Checks) for init container patterns
-- See operator ADR-020, ADR-030, ADR-041, ADR-049 for detailed feature specifications
+- See operator ADR-020, ADR-030, ADR-041, ADR-049, ADR-054 for detailed feature specifications
 - See `k8s/operators/jupyter-notebook-validator/samples/` for example manifests
+- **ADR-054 (upstream)**: Pod Scheduling Support - tolerations, nodeSelector, affinity implementation
 
 ### Operator Deployment
 
@@ -427,9 +487,9 @@ k8s/operators/jupyter-notebook-validator/
 │   ├── predictive-analytics-validation-job.yaml
 │   └── README.md                   # Usage examples
 └── overlays/
-    ├── dev-ocp4.18/                # OCP 4.18 (image: 1.0.5 - universal release)
-    ├── dev-ocp4.19/                # OCP 4.19 (image: 1.0.5 - universal release)
-    └── dev-ocp4.20/                # OCP 4.20 (image: 1.0.5 - universal release)
+    ├── dev-ocp4.18/                # OCP 4.18 (image: 1.0.6 - universal release)
+    ├── dev-ocp4.19/                # OCP 4.19 (image: 1.0.6 - universal release)
+    └── dev-ocp4.20/                # OCP 4.20 (image: 1.0.6 - universal release)
 ```
 
 **Installation**:
@@ -526,6 +586,9 @@ make uninstall-jupyter-validator
 - ✅ **NEW (2025-12-01) - Model Sharing**: Multiple notebooks can access shared model repository via PVCs
 - ✅ **NEW (2025-12-01) - Training-to-Deployment Pipeline**: Seamless workflow from training to KServe deployment
 - ✅ **NEW (2025-12-01) - GPU Support**: Full GPU support for model training notebooks with persistent storage
+- ✅ **NEW (2026-01-28 - v1.0.6) - GPU Node Scheduling**: Native tolerations support for GPU tainted nodes
+- ✅ **NEW (2026-01-28 - v1.0.6) - Advanced Scheduling**: nodeSelector and affinity for sophisticated pod placement
+- ✅ **NEW (2026-01-28 - v1.0.6) - Pod Scheduling Fix**: Resolves "untolerated taint" errors for GPU workloads
 
 ### Negative Consequences
 

@@ -32,9 +32,33 @@ spec:
       requests:
         memory: "4Gi"
         cpu: "2000m"
+        nvidia.com/gpu: "1"
       limits:
         memory: "8Gi"
         cpu: "4000m"
+        nvidia.com/gpu: "1"
+
+    # GPU node tolerations (v1.0.6+ feature)
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+    # GPU node selector (optional but recommended)
+    nodeSelector:
+      nvidia.com/gpu.present: "true"
+
+    # GPU affinity for high-memory GPUs (optional)
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: nvidia.com/gpu.memory
+                  operator: Gt
+                  values:
+                    - "16384"
 
     # Volume mount for model storage
     volumes:

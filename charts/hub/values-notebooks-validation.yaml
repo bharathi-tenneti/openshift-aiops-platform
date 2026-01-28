@@ -20,8 +20,8 @@ notebooks:
     operatorDeploymentMethod: "olm"
 
     # Operator image (only used when operatorDeploymentMethod: "helm")
-    # v1.0.5 includes: ArgoCD integration, model validation, exit code validation, advanced comparison
-    operatorImage: "quay.io/takinosh/jupyter-notebook-validator-operator:1.0.5"
+    # v1.0.6 includes: ArgoCD integration, model validation, exit code validation, advanced comparison, GPU tolerations
+    operatorImage: "quay.io/takinosh/jupyter-notebook-validator-operator:1.0.6"
 
     # Operator resource configuration (only used when operatorDeploymentMethod: "helm")
     operatorResources:
