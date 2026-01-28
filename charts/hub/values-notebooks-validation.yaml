@@ -101,7 +101,7 @@ notebooks:
           cpu: "4000m"
         timeout: "45m"
         gpu:
-          enabled: false
+          enabled: true  # Enable GPU for tier3 notebooks (predictive-analytics)
           count: "1"
 
     # =========================================================================
@@ -262,6 +262,7 @@ notebooks:
           - name: "predictive-analytics-kserve"
             path: "notebooks/02-anomaly-detection/05-predictive-analytics-kserve.ipynb"
             tier: "tier3"
+            gpuRequired: true  # Enable GPU for faster training (5 models need training)
             # Trains predictive analytics model with KServe-compatible format (Issue #13 fix, ADR-051, ADR-053)
             # Model training now handled by Tekton Pipelines (ADR-053)
             # ArgoCD sync no longer blocks on training - Tekton handles scheduling/health checks

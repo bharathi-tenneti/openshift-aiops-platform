@@ -124,12 +124,13 @@ spec:
                   claimName: model-storage-pvc
             resources:
               requests:
-                memory: "2Gi"
-                cpu: "1000m"
-              limits:
                 memory: "4Gi"
                 cpu: "2000m"
-          timeout: 15m
+              limits:
+                memory: "8Gi"
+                cpu: "4000m"
+                $(if [ "$MODEL_NAME" = "predictive-analytics" ]; then echo "nvidia.com/gpu: \"1\""; fi)
+          timeout: $(if [ "$MODEL_NAME" = "predictive-analytics" ]; then echo "45m"; else echo "15m"; fi)
         EOF
 
         echo "$JOB_NAME" > $(results.job-name.path)
