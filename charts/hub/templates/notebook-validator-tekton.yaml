@@ -3,6 +3,36 @@
 {{- $gitUrl := .Values.notebooks.validation.git.url | default .Values.git.repoURL | default .Values.global.git.repoURL | default "" }}
 {{- $gitRef := .Values.notebooks.validation.git.ref | default .Values.git.revision | default .Values.global.git.revision | default "main" }}
 ---
+# Notebook Validator Image Build
+# ==============================
+# This template creates:
+# 1. ImageStream: notebook-validator (stores built image)
+# 2. BuildConfig: notebook-validator (builds from notebooks/Dockerfile)
+# 3. Job: wait-for-notebook-validator-image (blocks ArgoCD until image ready)
+#
+# Build Triggers:
+# - ConfigChange: Automatic rebuild when Helm chart syncs
+# - Generic Webhook: Manual/automated rebuild via webhook URL
+#
+# To set up GitHub webhook (for auto-rebuild on git push):
+# 1. Create webhook secret:
+#    oc create secret generic notebook-validator-webhook-secret \
+#      --from-literal=WebHookSecretKey=$(openssl rand -hex 20) \
+#      -n self-healing-platform
+#
+# 2. Get webhook URL:
+#    oc describe bc notebook-validator -n self-healing-platform | grep "webhook"
+#
+# 3. Configure in GitHub:
+#    - Repository > Settings > Webhooks > Add webhook
+#    - Payload URL: <webhook URL from step 2>
+#    - Content type: application/json
+#    - Secret: <value from step 1>
+#    - Events: Just the push event
+#    - Path filter (optional): notebooks/**
+#
+# Related: ADR-027 (CI/CD Pipeline Automation), ADR-031 (Dockerfile Strategy)
+---
 # ImageStream for notebook-validator
 # Stores the built image with all ML packages pre-installed
 apiVersion: image.openshift.io/v1
@@ -36,6 +66,10 @@ metadata:
     app.kubernetes.io/part-of: self-healing-platform
   annotations:
     argocd.argoproj.io/sync-wave: "-4"
+    # Ensure ArgoCD waits for initial build to complete
+    argocd.argoproj.io/sync-options: "SkipDryRunOnMissingResource=true"
+    # Track the Build resources created by this BuildConfig
+    argocd.argoproj.io/compare-options: "IncludeMutationWebhook=true"
     description: |
       Builds the notebook-validator image with all ML packages pre-installed.
       Base: RHOAI pytorch:2025.1 (RHEL 9, enterprise supported)
@@ -68,14 +102,28 @@ spec:
       memory: "8Gi"
   # Build completion timeout (building pytorch base can take a while)
   completionDeadlineSeconds: 3600
-  # Trigger on config change (first deployment)
+  # Triggers:
+  # - ConfigChange: Rebuild when BuildConfig changes (Helm update, sync)
+  # - Generic webhook: Rebuild when triggered via webhook URL (GitHub, manual)
   triggers:
     - type: ConfigChange
+    - type: Generic
+      generic:
+        secret: notebook-validator-webhook-secret  # pragma: allowlist secret
+        allowEnv: true
 
 ---
 # Job to wait for notebook-validator image to be built
-# This blocks ArgoCD sync until the image exists, ensuring dependent resources
-# (NotebookValidationJobs, workbench) don't fail due to missing image
+#
+# GitOps Integration: This job ensures the Build resource (notebook-validator-1-build)
+# completes before ArgoCD proceeds to higher sync waves. By blocking at sync-wave -3,
+# this guarantees that:
+# - The notebook-validator:latest image exists in the ImageStream
+# - All dependent resources (NotebookValidationJobs, workbench) can reference the image
+# - Build failures are caught during ArgoCD sync, not during runtime
+#
+# Without this job, ArgoCD would consider the BuildConfig "synced" even if the Build
+# hasn't started or completed, causing dependent pods to fail with ImagePullBackOff
 apiVersion: batch/v1
 kind: Job
 metadata:
