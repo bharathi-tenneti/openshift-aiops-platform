@@ -83,13 +83,19 @@ spec:
         echo "Job Name:       $JOB_NAME"
         echo "=========================================="
 
-        # Set timeout based on model type
+        # Set timeout and GPU config based on model type
         if [ "$MODEL_NAME" = "predictive-analytics" ]; then
           TIMEOUT="45m"
           GPU_LIMITS='nvidia.com/gpu: "1"'
+          GPU_TOLERATIONS='
+            tolerations:
+              - key: nvidia.com/gpu
+                operator: Exists
+                effect: NoSchedule'
         else
           TIMEOUT="15m"
           GPU_LIMITS=""
+          GPU_TOLERATIONS=""
         fi
 
         # Create NotebookValidationJob YAML
@@ -140,6 +146,7 @@ spec:
                 memory: "8Gi"
                 cpu: "4000m"
                 ${GPU_LIMITS}
+${GPU_TOLERATIONS}
           timeout: ${TIMEOUT}
         EOF
 
