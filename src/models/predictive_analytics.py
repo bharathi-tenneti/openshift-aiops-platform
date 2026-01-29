@@ -18,9 +18,18 @@ import logging
 try:
     import xgboost as xgb
     XGBOOST_AVAILABLE = True
+    # Check if GPU support is available in XGBoost build
+    try:
+        # Test if gpu_hist is a valid tree method
+        test_model = xgb.XGBRegressor(tree_method='gpu_hist', n_estimators=1)
+        # Don't actually fit, just check if it initializes
+        XGBOOST_GPU_AVAILABLE = True
+    except (xgb.core.XGBoostError, ValueError):
+        XGBOOST_GPU_AVAILABLE = False
 except ImportError:
     from sklearn.ensemble import RandomForestRegressor
     XGBOOST_AVAILABLE = False
+    XGBOOST_GPU_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -48,11 +57,15 @@ class PredictiveAnalytics:
         self.feature_names = []
         self.target_metrics = ['cpu_usage', 'memory_usage', 'disk_usage', 'network_in', 'network_out']
         self.is_trained = False
-        self.use_gpu = use_gpu and XGBOOST_AVAILABLE
+        # Only use GPU if XGBoost has GPU support AND user requested it
+        self.use_gpu = use_gpu and XGBOOST_AVAILABLE and XGBOOST_GPU_AVAILABLE
         self.model_type = 'xgboost' if XGBOOST_AVAILABLE else 'random_forest'
 
         if XGBOOST_AVAILABLE:
-            logger.info(f"🚀 XGBoost available - GPU acceleration {'enabled' if self.use_gpu else 'disabled'}")
+            if self.use_gpu:
+                logger.info("🚀 XGBoost with GPU acceleration enabled")
+            else:
+                logger.info("🚀 XGBoost available (CPU histogram method - fast)")
         else:
             logger.info("⚠️ XGBoost not available - using sklearn RandomForest (slower)")
 
@@ -183,24 +196,21 @@ class PredictiveAnalytics:
             for step in range(self.forecast_horizon):
                 if XGBOOST_AVAILABLE:
                     # XGBoost - faster than RandomForest even on CPU
-                    # tree_method='hist' is the fast histogram algorithm (CPU)
-                    # tree_method='gpu_hist' requires CUDA-enabled XGBoost build
-                    try:
-                        # Try GPU first if requested
-                        if self.use_gpu:
-                            model = xgb.XGBRegressor(
-                                n_estimators=100,
-                                max_depth=10,
-                                learning_rate=0.1,
-                                tree_method='gpu_hist',
-                                device='cuda',
-                                random_state=42,
-                                n_jobs=-1
-                            )
-                        else:
-                            raise ValueError("GPU not requested")
-                    except (ValueError, xgb.core.XGBoostError):
-                        # Fall back to CPU histogram method (still faster than RandomForest)
+                    if self.use_gpu and XGBOOST_GPU_AVAILABLE:
+                        # GPU-accelerated XGBoost
+                        if step == 0:
+                            logger.info("Using XGBoost GPU histogram method (fastest)")
+                        model = xgb.XGBRegressor(
+                            n_estimators=100,
+                            max_depth=10,
+                            learning_rate=0.1,
+                            tree_method='gpu_hist',
+                            device='cuda',
+                            random_state=42,
+                            n_jobs=-1
+                        )
+                    else:
+                        # CPU histogram method (still faster than RandomForest)
                         if step == 0:
                             logger.info("Using XGBoost CPU histogram method (fast)")
                         model = xgb.XGBRegressor(
@@ -213,6 +223,8 @@ class PredictiveAnalytics:
                         )
                 else:
                     # Fallback to RandomForest (slowest)
+                    if step == 0:
+                        logger.info("Using sklearn RandomForest (slowest)")
                     model = RandomForestRegressor(
                         n_estimators=100,
                         max_depth=10,
