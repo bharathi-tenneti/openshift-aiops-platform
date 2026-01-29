@@ -410,7 +410,7 @@ coordinationEngine:
     anomalyDetectorModel: anomaly-detector  # Model name in KServe API endpoint
     predictiveAnalyticsService: predictive-analytics-stable  # Service DNS name
     predictiveAnalyticsModel: predictive-analytics  # Model name in KServe API endpoint
-    timeout: "10s"
+    timeout: "120s"  # Increased for feature engineering (builds 3264 features from 24h Prometheus data)
 
   # ArgoCD Integration
   argocd:
