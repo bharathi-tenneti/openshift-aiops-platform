@@ -546,8 +546,12 @@ def generate_sample_timeseries_data(n_samples: int = 1000) -> pd.DataFrame:
     """
     np.random.seed(42)
 
-    # Generate timestamps
-    timestamps = pd.date_range(start='2024-01-01', periods=n_samples, freq='5min')
+    # Generate timestamps ending at current time
+    # This ensures synthetic data has realistic, recent timestamps
+    from datetime import datetime, timedelta
+    end_time = datetime.now()
+    start_time = end_time - timedelta(minutes=5 * n_samples)
+    timestamps = pd.date_range(start=start_time, periods=n_samples, freq='5min')
 
     # Generate base patterns with seasonality
     hours = timestamps.hour
