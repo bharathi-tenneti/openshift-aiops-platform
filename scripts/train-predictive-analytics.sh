@@ -13,12 +13,19 @@
 #   --hours          Training window in hours (default: 168 = 7 days)
 #   --gpu            Use GPU node for training (requires gpu-training-pvc)
 #   --wait           Wait for training to complete
+#   --fast           Fast mode: 1 hour data, 200 max samples, 15m timeout (for testing)
+#   --max-samples    Maximum training samples (default: 0 = no limit)
 #   --help           Show this help message
 #
 # Examples:
 #   ./scripts/train-predictive-analytics.sh --data-source prometheus --hours 168
 #   ./scripts/train-predictive-analytics.sh --data-source synthetic --wait
 #   ./scripts/train-predictive-analytics.sh --gpu --hours 720
+#   ./scripts/train-predictive-analytics.sh --fast  # Quick test (~5 min)
+#
+# NOTE: Feature count is ALWAYS 3264 (24-hour lookback × 136 features per timestep)
+#       This matches the coordination engine's FEATURE_ENGINEERING_LOOKBACK_HOURS=24
+#       See: https://github.com/tosin2013/openshift-coordination-engine/blob/main/docs/FEATURE-ENGINEERING-GUIDE.md
 # =============================================================================
 
 set -e
@@ -28,6 +35,8 @@ DATA_SOURCE="${DATA_SOURCE:-prometheus}"
 TRAINING_HOURS="${TRAINING_HOURS:-168}"
 USE_GPU=false
 WAIT_FOR_COMPLETION=false
+FAST_MODE=false
+MAX_SAMPLES="${MAX_SAMPLES:-0}"  # 0 = no limit
 NAMESPACE="self-healing-platform"
 MODEL_NAME="predictive-analytics"
 GIT_URL="${GIT_URL:-https://github.com/tosin2013/openshift-aiops-platform.git}"
@@ -71,6 +80,16 @@ while [[ $# -gt 0 ]]; do
             TRAINING_HOURS="$2"
             shift 2
             ;;
+        --fast)
+            FAST_MODE=true
+            TRAINING_HOURS=1
+            MAX_SAMPLES=200
+            shift
+            ;;
+        --max-samples)
+            MAX_SAMPLES="$2"
+            shift 2
+            ;;
         --gpu)
             USE_GPU=true
             shift
@@ -102,13 +121,25 @@ fi
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 JOB_NAME="train-${MODEL_NAME}-${TIMESTAMP}"
 
+# Set timeout based on fast mode
+if [[ "$FAST_MODE" == "true" ]]; then
+    TIMEOUT="15m"
+else
+    TIMEOUT="90m"
+fi
+
 log_info "=========================================="
 log_info "Predictive Analytics Model Training"
 log_info "=========================================="
 log_info "Job Name:       $JOB_NAME"
 log_info "Data Source:    $DATA_SOURCE"
-log_info "Training Hours: $TRAINING_HOURS ($(echo "scale=1; $TRAINING_HOURS / 24" | bc) days)"
+log_info "Training Hours: $TRAINING_HOURS ($(echo "scale=1; $TRAINING_HOURS / 24" | bc 2>/dev/null || echo '?') days)"
 log_info "GPU Enabled:    $USE_GPU"
+log_info "Fast Mode:      $FAST_MODE"
+log_info "Timeout:        $TIMEOUT"
+if [[ "$MAX_SAMPLES" -gt 0 ]]; then
+    log_info "Max Samples:    $MAX_SAMPLES"
+fi
 log_info "Namespace:      $NAMESPACE"
 log_info "Git URL:        $GIT_URL"
 log_info "Git Ref:        $GIT_REF"
@@ -167,6 +198,8 @@ spec:
       value: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     - name: TRAINING_HOURS
       value: "${TRAINING_HOURS}"
+    - name: MAX_SAMPLES
+      value: "${MAX_SAMPLES}"
     - name: MODEL_NAME
       value: "${MODEL_NAME}"
     - name: PROMETHEUS_VERIFY_SSL
@@ -197,7 +230,7 @@ spec:
     - name: model-storage
       persistentVolumeClaim:
         claimName: ${PVC_NAME}
-  timeout: 90m
+  timeout: ${TIMEOUT}
 EOF
 else
     # CPU-only job
@@ -226,6 +259,8 @@ spec:
       value: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     - name: TRAINING_HOURS
       value: "${TRAINING_HOURS}"
+    - name: MAX_SAMPLES
+      value: "${MAX_SAMPLES}"
     - name: MODEL_NAME
       value: "${MODEL_NAME}"
     - name: PROMETHEUS_VERIFY_SSL
@@ -248,7 +283,7 @@ spec:
     - name: model-storage
       persistentVolumeClaim:
         claimName: ${PVC_NAME}
-  timeout: 90m
+  timeout: ${TIMEOUT}
 EOF
 fi
 
