@@ -114,18 +114,38 @@ jobs:
         env:
           ANSIBLE_HUB_TOKEN: ${{ secrets.ANSIBLE_HUB_TOKEN }}
         run: |
-          make build-ee \
-            TARGET_NAME=openshift-aiops-platform-ee \
-            TARGET_TAG=${{ steps.determine-tag.outputs.tag }} \
-            CONTAINER_ENGINE=${{ env.CONTAINER_ENGINE }} \
-            VERBOSITY=${{ inputs.verbosity || 3 }}
+          echo "Building execution environment..."
+          if [[ ! -f "execution-environment.yml" ]]; then
+            echo "Error: execution-environment.yml not found"
+            exit 1
+          fi
+
+          TAG="${{ steps.determine-tag.outputs.tag }}"
+          echo "Building image: openshift-aiops-platform-ee:${TAG}"
+
+          ansible-builder build \
+            --tag openshift-aiops-platform-ee:${TAG} \
+            --verbosity ${{ inputs.verbosity || 3 }} \
+            --container-runtime ${{ env.CONTAINER_ENGINE }}
+
+          echo "✅ Execution environment built successfully"
+          echo "Image: openshift-aiops-platform-ee:${TAG}"
 
       - name: Test execution environment
         run: |
-          make test-ee \
-            TARGET_NAME=openshift-aiops-platform-ee \
-            TARGET_TAG=${{ steps.determine-tag.outputs.tag }} \
-            CONTAINER_ENGINE=${{ env.CONTAINER_ENGINE }}
+          TAG="${{ steps.determine-tag.outputs.tag }}"
+          echo "Testing execution environment: openshift-aiops-platform-ee:${TAG}"
+
+          echo "Verifying image exists locally:"
+          ${{ env.CONTAINER_ENGINE }} images openshift-aiops-platform-ee:${TAG}
+
+          echo -e "\nTesting Ansible version:"
+          ${{ env.CONTAINER_ENGINE }} run --rm openshift-aiops-platform-ee:${TAG} ansible --version
+
+          echo -e "\nTesting Ansible collections:"
+          ${{ env.CONTAINER_ENGINE }} run --rm openshift-aiops-platform-ee:${TAG} ansible-galaxy collection list
+
+          echo -e "\n✅ Execution environment test complete"
 
       - name: Verify Python packages
         run: |
@@ -207,11 +227,22 @@ jobs:
         env:
           ANSIBLE_HUB_TOKEN: ${{ secrets.ANSIBLE_HUB_TOKEN }}
         run: |
-          make build-ee \
-            TARGET_NAME=openshift-aiops-platform-ee \
-            TARGET_TAG=${{ needs.build-test.outputs.image_tag }} \
-            CONTAINER_ENGINE=${{ env.CONTAINER_ENGINE }} \
-            VERBOSITY=${{ inputs.verbosity || 3 }}
+          echo "Rebuilding execution environment for publish..."
+          if [[ ! -f "execution-environment.yml" ]]; then
+            echo "Error: execution-environment.yml not found"
+            exit 1
+          fi
+
+          TAG="${{ needs.build-test.outputs.image_tag }}"
+          echo "Building image: openshift-aiops-platform-ee:${TAG}"
+
+          ansible-builder build \
+            --tag openshift-aiops-platform-ee:${TAG} \
+            --verbosity ${{ inputs.verbosity || 3 }} \
+            --container-runtime ${{ env.CONTAINER_ENGINE }}
+
+          echo "✅ Execution environment built successfully"
+          echo "Image: openshift-aiops-platform-ee:${TAG}"
 
       - name: Log in to Quay.io
         env:
