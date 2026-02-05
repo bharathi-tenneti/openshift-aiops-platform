@@ -42,8 +42,8 @@ namespacedRbacManagedExternally: true
 # Image builds configuration
 imageBuilds:
   enabled: true
-  gitRepository: "https://github.com/KubeHeal/openshift-aiops-platform.git"
-  gitRef: "main"
+  gitRepository: "https://github.com/bharathi-tenneti/openshift-aiops-platform.git"
+  gitRef: "dev"
   gitCredentialsSecret: "git-credentials-source"  # pragma: allowlist secret
   baseImage: "registry.redhat.io/ubi8/python-39:latest"
 
@@ -75,8 +75,8 @@ clusterGroup:
       namespace: self-healing-platform
       project: default
       path: charts/hub
-      repoURL: "https://github.com/KubeHeal/openshift-aiops-platform.git"
-      targetRevision: main
+      repoURL: "https://github.com/bharathi-tenneti/openshift-aiops-platform.git"
+      targetRevision: dev
       helm:
         valueFiles:
           - /values-global.yaml
