@@ -36,6 +36,34 @@ Before starting deployment, ensure you have:
 
 The Execution Environment contains all dependencies needed for Ansible playbooks.
 
+#### Option A: Use Pre-Built Image (Recommended)
+
+The execution environment is automatically built and published via GitHub Actions to Quay.io.
+
+```bash
+# Pull the latest pre-built image from Quay.io
+podman pull quay.io/takinosh/openshift-aiops-platform-ee:latest
+
+# Tag for local use
+podman tag quay.io/takinosh/openshift-aiops-platform-ee:latest \
+  openshift-aiops-platform-ee:latest
+```
+
+**Benefits**:
+- No local build required (saves 10-15 minutes)
+- Always up-to-date with latest changes
+- Consistent with CI/CD pipeline
+
+**Automated Builds:**
+- **Workflow:** `.github/workflows/build-ee.yml`
+- **Registry:** `quay.io/takinosh/openshift-aiops-platform-ee`
+- **Triggers:** Push to main, git tags (`v*`, `release-*`), or manual workflow dispatch
+- **Manual Trigger:** Go to GitHub Actions → "Build and Publish Execution Environment" → Run workflow
+
+#### Option B: Build Locally
+
+If you need to build locally (for development or testing):
+
 ```bash
 # Clone repository (if not already cloned)
 git clone https://github.com/openshift-aiops/openshift-aiops-platform.git

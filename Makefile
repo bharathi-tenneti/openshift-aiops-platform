@@ -360,7 +360,7 @@ TARGET_TAG ?= latest
 VERBOSITY ?= 3
 SOURCE_HUB ?= registry.redhat.io
 
-.PHONY: build-ee test-ee list-ee clean-ee rebuild-ee check-token token check-prerequisites load-env-secrets test-openshift-tooling
+.PHONY: build-ee test-ee list-ee clean-ee rebuild-ee push-ee check-token token check-prerequisites load-env-secrets test-openshift-tooling
 
 # Check ANSIBLE_HUB_TOKEN only for targets that need it
 # Use .PHONY target with a check that runs at execution time, not parse time
@@ -436,6 +436,21 @@ clean-ee: ## Clean execution environment build artifacts
 	rm -rf my-pattern/context
 	$(CONTAINER_ENGINE) rmi $(TARGET_NAME):$(TARGET_TAG) 2>/dev/null || true
 	@echo "✅ Cleanup complete"
+
+push-ee: ## Push execution environment to registry
+	@echo "\n\n***************************** Pushing to Registry \n"
+	@echo "Tagging $(TARGET_NAME):$(TARGET_TAG) for $(TARGET_HUB)"
+	$(CONTAINER_ENGINE) tag $(TARGET_NAME):$(TARGET_TAG) \
+		$(TARGET_HUB)/$(TARGET_NAME):$(TARGET_TAG)
+	@echo "Pushing $(TARGET_HUB)/$(TARGET_NAME):$(TARGET_TAG)"
+	$(CONTAINER_ENGINE) push $(TARGET_HUB)/$(TARGET_NAME):$(TARGET_TAG)
+	@if [ "$(PUSH_LATEST)" = "true" ]; then \
+		echo "Tagging and pushing latest..."; \
+		$(CONTAINER_ENGINE) tag $(TARGET_NAME):$(TARGET_TAG) \
+			$(TARGET_HUB)/$(TARGET_NAME):latest; \
+		$(CONTAINER_ENGINE) push $(TARGET_HUB)/$(TARGET_NAME):latest; \
+	fi
+	@echo "✅ Image published to $(TARGET_HUB)/$(TARGET_NAME):$(TARGET_TAG)"
 
 check-prerequisites: ## Validate cluster meets prerequisites (non-destructive check)
 	@echo "\n\n***************************** Checking Prerequisites \n"
