@@ -17,10 +17,10 @@ global:
   # Git repository configuration
   git:
     repoURL: "https://github.com/bharathi-tenneti/openshift-aiops-platform.git"
-    revision: main
+    revision: dev
 
   # Target revision for ArgoCD
-  targetRevision: main
+  targetRevision: dev
 
 # Clustergroup configuration
 clusterGroup:
@@ -65,7 +65,7 @@ clusterGroup:
       project: default
       path: charts/hub
       repoURL: "https://github.com/bharathi-tenneti/openshift-aiops-platform.git"
-      targetRevision: main
+      targetRevision: dev
       helm:
         valueFiles:
           - /values-global.yaml
