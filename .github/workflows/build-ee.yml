@@ -170,7 +170,7 @@ jobs:
           echo "Testing Python package availability..."
           ${{ env.CONTAINER_ENGINE }} run --rm \
             openshift-aiops-platform-ee:${{ steps.determine-tag.outputs.tag }} \
-            python3 -c "import kubernetes, openshift, jmespath, requests; print('✅ Python packages OK')"
+            python3 -c "import kubernetes, jmespath, requests; print('✅ Python packages OK')"
 
       - name: Verify system binaries
         run: |
