@@ -81,6 +81,14 @@ spec:
     {{- end }}
     # Use self-healing-workbench SA for Prometheus access and other cluster permissions
     serviceAccountName: self-healing-workbench
+    {{- if .notebook.env }}
+    # Per-notebook environment variables (e.g. TRAINING_MODE, DATA_SOURCE)
+    env:
+    {{- range .notebook.env }}
+    - name: {{ .name }}
+      value: {{ .value | quote }}
+    {{- end }}
+    {{- end }}
     envFrom:
     - secretRef:
         name: model-storage-config
