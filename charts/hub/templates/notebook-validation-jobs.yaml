@@ -81,17 +81,16 @@ spec:
     {{- end }}
     # Use self-healing-workbench SA for Prometheus access and other cluster permissions
     serviceAccountName: self-healing-workbench
+    envFrom:
+    - secretRef:
+        name: model-storage-config
     {{- if .notebook.env }}
-    # Per-notebook environment variables (e.g. TRAINING_MODE, DATA_SOURCE)
     env:
     {{- range .notebook.env }}
     - name: {{ .name }}
       value: {{ .value | quote }}
     {{- end }}
     {{- end }}
-    envFrom:
-    - secretRef:
-        name: model-storage-config
     # Mount shared model storage for training output
     # GPU jobs use model-storage-gpu-pvc (gp3-csi) - GPU nodes cannot mount ocs-storagecluster-cephfs
     # Non-GPU jobs use model-storage-pvc (ocs-storagecluster-cephfs)

@@ -266,16 +266,10 @@ notebooks:
             # Trains predictive analytics model with KServe-compatible format (Issue #13 fix, ADR-051, ADR-053)
             # Model training now handled by Tekton Pipelines (ADR-053)
             # ArgoCD sync no longer blocks on training - Tekton handles scheduling/health checks
-            # Training mode: quick (1 day, 500 samples) for CI/CD validation
-            # For full production training, use Tekton pipeline with TRAINING_MODE=production
-            # See: docs/blog/17-training-ml-models-with-tekton.md for time windows
+            # Fast training mode for ArgoCD validation jobs (~1 min vs ~30 min for production)
             env:
               - name: TRAINING_MODE
                 value: "quick"
-              - name: PROMETHEUS_URL
-                value: "https://prometheus-k8s.openshift-monitoring.svc:9091"
-              - name: DATA_SOURCE
-                value: "prometheus"
             validationConfig:
               level: "production"
               strictMode: true
