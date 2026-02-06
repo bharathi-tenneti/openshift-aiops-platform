@@ -259,6 +259,21 @@ notebooks:
             path: "notebooks/02-anomaly-detection/03-lstm-based-prediction.ipynb"
             tier: "tier3"
             gpuRequired: true
+          - name: "predictive-analytics-kserve"
+            path: "notebooks/02-anomaly-detection/05-predictive-analytics-kserve.ipynb"
+            tier: "tier3"
+            gpuRequired: true  # Enable GPU for faster training (5 models need training)
+            # Trains predictive analytics model with KServe-compatible format (Issue #13 fix, ADR-051, ADR-053)
+            # Model training now handled by Tekton Pipelines (ADR-053)
+            # ArgoCD sync no longer blocks on training - Tekton handles scheduling/health checks
+            validationConfig:
+              level: "production"
+              strictMode: true
+              detectSilentFailures: true
+            comparisonConfig:
+              strategy: "normalized"
+              floatingPointTolerance: "0.01"
+              ignoreTimestamps: true
 
       # Wave 4: Ensemble Model
       wave4:

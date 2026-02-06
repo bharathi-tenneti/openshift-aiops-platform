@@ -2,6 +2,17 @@
 """
 KServe-compatible wrapper for PredictiveAnalytics model
 This wrapper provides a sklearn-compatible interface that KServe can serve
+
+⚠️ DEPRECATED: This module is deprecated and should not be used for new deployments.
+
+The kserve_wrapper approach was found to be incompatible with KServe sklearn server
+because the wrapper class cannot be deserialized in the KServe container environment
+(ModuleNotFoundError: No module named 'kserve_wrapper').
+
+For KServe deployment, use notebooks/02-anomaly-detection/05-predictive-analytics-kserve.ipynb
+which saves a standard sklearn Pipeline that KServe can deserialize without any custom modules.
+
+This file is kept for reference only and may be removed in a future release.
 """
 
 import logging
