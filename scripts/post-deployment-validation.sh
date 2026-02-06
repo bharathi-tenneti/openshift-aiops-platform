@@ -441,28 +441,28 @@ if oc get inferenceservices -n self-healing-platform &>/dev/null 2>&1; then
     if [ "$ISVC_COUNT" -gt 0 ]; then
         echo ""
         print_info "Testing inference endpoints for ${ISVC_COUNT} InferenceService(s)..."
-        
+
         while IFS= read -r line; do
             ISVC_NAME=$(echo "$line" | awk '{print $1}')
             ISVC_READY=$(echo "$line" | awk '{print $2}')
-            
+
             echo ""
             echo -e "${CYAN}Testing: ${ISVC_NAME}${NC}"
             print_info "Status: ${ISVC_READY}"
-            
+
             # Get predictor pod IP (RawDeployment mode uses headless service)
             POD_IP=$(oc get pods -n self-healing-platform \
               -l serving.kserve.io/inferenceservice="$ISVC_NAME" \
               -o jsonpath='{.items[0].status.podIP}' 2>/dev/null || echo "")
-            
+
             if [ -z "$POD_IP" ]; then
                 print_fail "No predictor pod found for ${ISVC_NAME}"
                 INFERENCE_STATUS="FAIL"
                 continue
             fi
-            
+
             print_info "Pod IP: ${POD_IP}"
-            
+
             # Determine test data size based on model name
             if [ "$ISVC_NAME" = "anomaly-detector" ]; then
                 TEST_DATA_SIZE=45
@@ -471,7 +471,7 @@ if oc get inferenceservices -n self-healing-platform &>/dev/null 2>&1; then
             else
                 TEST_DATA_SIZE=45  # Default
             fi
-            
+
             # Generate test payload (simple array of random floats)
             TEST_PAYLOAD=$(python3 -c "
 import json
@@ -480,33 +480,33 @@ random.seed(42)
 test_data = [round(random.random(), 4) for _ in range($TEST_DATA_SIZE)]
 print(json.dumps({'instances': [test_data]}))
 " 2>/dev/null || echo "")
-            
+
             if [ -z "$TEST_PAYLOAD" ]; then
                 print_warn "Could not generate test payload (python3 not available), skipping test"
                 continue
             fi
-            
+
             # Test inference endpoint
             URL="http://${POD_IP}:8080/v1/models/${ISVC_NAME}:predict"
             print_info "Testing endpoint: ${URL}"
-            
+
             # Retry logic (service might be starting up)
             MAX_RETRIES=5
             RETRY_DELAY=5
             TEST_PASSED=false
-            
+
             for attempt in $(seq 1 $MAX_RETRIES); do
                 print_info "Attempt ${attempt}/${MAX_RETRIES}..."
-                
+
                 # Send prediction request
                 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$URL" \
                   -H "Content-Type: application/json" \
                   -d "$TEST_PAYLOAD" \
                   --max-time 10 2>/dev/null || echo "")
-                
+
                 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
                 RESPONSE_BODY=$(echo "$RESPONSE" | head -n-1)
-                
+
                 if [ "$HTTP_CODE" = "200" ]; then
                     # Check if response contains predictions (not an error)
                     if echo "$RESPONSE_BODY" | grep -q "predictions\|predictions\|\"error\""; then
@@ -552,14 +552,14 @@ print(json.dumps({'instances': [test_data]}))
                     break
                 fi
             done
-            
+
             if [ "$TEST_PASSED" = false ]; then
                 print_fail "Inference test failed for ${ISVC_NAME} after ${MAX_RETRIES} attempts"
                 INFERENCE_STATUS="FAIL"
             fi
-            
+
         done < <(oc get inferenceservices -n self-healing-platform --no-headers 2>/dev/null)
-        
+
         if [ "$INFERENCE_STATUS" = "PASS" ]; then
             print_pass "All inference endpoints are healthy and serving predictions"
         fi
