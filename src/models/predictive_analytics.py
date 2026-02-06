@@ -573,16 +573,17 @@ class PredictiveAnalytics:
                 }
             }
 
-            # Wrap in KServe-compatible wrapper
-            try:
-                from kserve_wrapper import create_kserve_model
-                kserve_model = create_kserve_model(model_package)
-                model_to_save = kserve_model
-                logger.info("Using KServe wrapper for sklearn server compatibility")
-            except ImportError:
-                # Fallback if wrapper not available (still works but less compatible)
-                logger.warning("KServe wrapper not found, saving raw model package")
-                model_to_save = model_package
+            # Save raw model package (dict format)
+            # NOTE: This method is deprecated for KServe deployment. For KServe-compatible models,
+            # use notebooks/02-anomaly-detection/05-predictive-analytics-kserve.ipynb which saves
+            # a standard sklearn Pipeline that KServe can deserialize without custom modules.
+            # The kserve_wrapper approach was removed because it requires a custom module that
+            # doesn't exist in the KServe sklearn server container.
+            logger.warning(
+                "Saving model_package dict format. For KServe deployment, use "
+                "05-predictive-analytics-kserve.ipynb which saves a standard sklearn Pipeline."
+            )
+            model_to_save = model_package
 
             model_path = kserve_dir / 'model.pkl'
 
