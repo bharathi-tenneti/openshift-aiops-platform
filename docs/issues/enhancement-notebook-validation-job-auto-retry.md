@@ -36,7 +36,7 @@ The operator should intelligently handle failed jobs by:
 
 1. **Initial State**: Job configured with 8Gi memory, no GPU
 2. **Failure**: Job fails with `OOMKilled` after 3 retries
-3. **Fix Applied**: 
+3. **Fix Applied**:
    - GPU enabled in `values-hub.yaml`
    - ArgoCD syncs changes
    - Job spec updated with `nvidia.com/gpu: "1"`
@@ -61,7 +61,7 @@ func (r *NotebookValidationJobReconciler) Reconcile(ctx context.Context, req ctr
     if err := r.Get(ctx, req.NamespacedName, job); err != nil {
         return ctrl.Result{}, client.IgnoreNotFound(err)
     }
-    
+
     // If job failed and spec changed, recreate
     if job.Status.Phase == "Failed" {
         if r.hasSpecChanged(job) {
@@ -69,7 +69,7 @@ func (r *NotebookValidationJobReconciler) Reconcile(ctx context.Context, req ctr
             return r.recreateJob(ctx, job)
         }
     }
-    
+
     // ... existing reconciliation logic
 }
 ```
@@ -143,14 +143,14 @@ Existing failed jobs will remain in `Failed` state until manually deleted or unt
 
 ## Additional Context
 
-**Operator**: `jupyter-notebook-validator-operator`  
-**Version**: v1.0.5+  
-**Repository**: https://github.com/takinosh/jupyter-notebook-validator-operator  
-**Current Behavior**: Jobs remain in `Failed` state after retries exhausted  
+**Operator**: `jupyter-notebook-validator-operator`
+**Version**: v1.0.5+
+**Repository**: https://github.com/takinosh/jupyter-notebook-validator-operator
+**Current Behavior**: Jobs remain in `Failed` state after retries exhausted
 **Desired Behavior**: Jobs auto-retry when spec changes or conditions improve
 
 ---
 
-**Labels**: `enhancement`, `operator`, `notebook-validation`, `good-first-issue`  
-**Priority**: Medium  
+**Labels**: `enhancement`, `operator`, `notebook-validation`, `good-first-issue`
+**Priority**: Medium
 **Estimated Effort**: 2-3 days
