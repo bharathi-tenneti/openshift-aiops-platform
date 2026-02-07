@@ -46,10 +46,10 @@ spec:
     spec:
       serviceAccountName: self-healing-operator
       restartPolicy: OnFailure
-      # Match the UID/GID used by the NVJ training pods so we can read/write
-      # model files on both PVCs (CephFS uses GID 1000910000)
+      # CephFS PVC files are owned by namespace GID — set fsGroup so this pod
+      # can read/write model files.  Do NOT set runAsUser (let OpenShift SCC
+      # assign a UID from the namespace range to stay within restricted-v2).
       securityContext:
-        runAsUser: 1001
         fsGroup: 1000910000
       initContainers:
       # Wait for final PVC to be mounted (required)
@@ -200,19 +200,22 @@ spec:
             return 1
           }
 
-          # Function to restart predictor deployment
+          # Function to restart predictor pods
+          # Uses pod deletion instead of rollout restart because KServe HPA
+          # immediately scales back any rollout restart, making it a no-op.
+          # Deleting the running pod forces the ReplicaSet to create a fresh one
+          # that picks up the new model from the PVC.
           restart_predictor() {
             local service_name=$1
-            local deployment_name="${service_name}-predictor"
 
             echo ""
             echo "Restarting predictor for InferenceService: $service_name"
-            echo "Deployment name: $deployment_name"
 
-            # Get current pod count
-            local pod_count=$(oc get pods -n "$NAMESPACE" \
+            # Get current predictor pods
+            local pods=$(oc get pods -n "$NAMESPACE" \
               -l serving.kserve.io/inferenceservice="$service_name" \
-              --no-headers 2>/dev/null | wc -l | tr -d ' ')
+              --no-headers 2>/dev/null)
+            local pod_count=$(echo "$pods" | grep -c . 2>/dev/null || echo "0")
 
             if [ "$pod_count" -eq 0 ]; then
               echo "⚠️  WARNING: No predictor pods found for $service_name, skipping restart"
@@ -221,20 +224,14 @@ spec:
 
             echo "Current pod count: $pod_count"
 
-            # Restart deployment
-            if oc rollout restart deployment/"$deployment_name" -n "$NAMESPACE" 2>/dev/null; then
-              echo "✓ Deployment restart triggered"
-            else
-              echo "⚠️  WARNING: Could not restart deployment $deployment_name (may not exist yet)"
-              # Try deleting pods directly as fallback
-              echo "Attempting direct pod deletion..."
-              oc delete pods -n "$NAMESPACE" \
-                -l serving.kserve.io/inferenceservice="$service_name" \
-                --wait=false 2>/dev/null || true
-            fi
+            # Delete predictor pods directly — ReplicaSet will recreate them
+            echo "Deleting predictor pods to force model reload..."
+            oc delete pods -n "$NAMESPACE" \
+              -l serving.kserve.io/inferenceservice="$service_name" \
+              --wait=false 2>/dev/null || true
 
-            # Wait for pods to be running
-            echo "Waiting for pods to restart..."
+            # Wait for replacement pods to reach Running state
+            echo "Waiting for replacement pods..."
             local elapsed=0
             while [ $elapsed -lt $RESTART_TIMEOUT ]; do
               local ready_count=$(oc get pods -n "$NAMESPACE" \
@@ -242,13 +239,13 @@ spec:
                 --field-selector=status.phase=Running \
                 --no-headers 2>/dev/null | wc -l | tr -d ' ')
 
-              if [ "$ready_count" -ge "$pod_count" ]; then
-                echo "✓ All pods are running ($ready_count/$pod_count)"
+              if [ "$ready_count" -ge 1 ]; then
+                echo "✓ Predictor pod running ($ready_count pods)"
                 oc get pods -n "$NAMESPACE" -l serving.kserve.io/inferenceservice="$service_name"
                 return 0
               fi
 
-              echo "⏳ Waiting for pods... ($ready_count/$pod_count running, elapsed: ${elapsed}s)"
+              echo "⏳ Waiting for pods... ($ready_count running, elapsed: ${elapsed}s)"
               sleep 5
               elapsed=$((elapsed + 5))
             done
