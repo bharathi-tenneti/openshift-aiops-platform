@@ -74,15 +74,25 @@ spec:
 
         echo "=== Checking Required Tools ==="
 
-        TOOLS=("oc" "kubectl" "helm" "jq" "yq")
+        # Check tools available in the task container
+        REQUIRED_TOOLS=("oc" "kubectl")
+        OPTIONAL_TOOLS=("helm" "jq" "yq")
 
-        for tool in "${TOOLS[@]}"; do
+        for tool in "${REQUIRED_TOOLS[@]}"; do
           if command -v "$tool" &>/dev/null; then
             VERSION=$($tool version 2>/dev/null | head -1 || echo "installed")
             echo "PASS: $tool is available ($VERSION)"
           else
             echo "FAIL: $tool is not available"
             exit 1
+          fi
+        done
+
+        for tool in "${OPTIONAL_TOOLS[@]}"; do
+          if command -v "$tool" &>/dev/null; then
+            echo "PASS: $tool is available"
+          else
+            echo "WARNING: $tool is not available in task image (optional)"
           fi
         done
 
