@@ -763,6 +763,14 @@ spec:
       type: string
       default: {{ .Values.main.namespace }}
       description: Target namespace for validation
+    - name: anomaly-detector-features
+      type: string
+      default: "45"
+      description: Number of input features for anomaly-detector model
+    - name: predictive-analytics-features
+      type: string
+      default: "5"
+      description: Number of input features for predictive-analytics model
   steps:
     - name: check-coordination-engine-deployment
       image: quay.io/takinosh/maintenance-tools:latest
@@ -899,6 +907,11 @@ spec:
 
     - name: test-model-inference
       image: quay.io/takinosh/maintenance-tools:latest
+      env:
+        - name: ANOMALY_DETECTOR_FEATURES
+          value: "$(params.anomaly-detector-features)"
+        - name: PREDICTIVE_ANALYTICS_FEATURES
+          value: "$(params.predictive-analytics-features)"
       script: |
         #!/bin/bash
         set -e
@@ -908,14 +921,24 @@ spec:
         NAMESPACE="$(params.namespace)"
         BASE_URL="http://coordination-engine.${NAMESPACE}.svc.cluster.local:8080"
 
-        MODELS="anomaly-detector predictive-analytics"
+        # Generate a comma-separated list of N zero values: 0.0,0.0,...
+        generate_features() {
+          local count=$1
+          python3 -c "print(','.join(['0.0']*${count}))"
+        }
 
-        for model in $MODELS; do
-          echo "Sending inference request for model: $model"
+        declare -A MODEL_FEATURES
+        MODEL_FEATURES[anomaly-detector]=$ANOMALY_DETECTOR_FEATURES
+        MODEL_FEATURES[predictive-analytics]=$PREDICTIVE_ANALYTICS_FEATURES
+
+        for model in anomaly-detector predictive-analytics; do
+          NUM_FEATURES=${MODEL_FEATURES[$model]}
+          FEATURES=$(generate_features "$NUM_FEATURES")
+          echo "Sending inference request for model: $model ($NUM_FEATURES features)"
 
           RESPONSE=$(curl -s --max-time 15 -X POST "${BASE_URL}/api/v1/detect" \
             -H "Content-Type: application/json" \
-            -d "{\"model\": \"${model}\", \"instances\": [[0.5, 1.2, 0.8]]}" || echo "FAILED")
+            -d "{\"model\": \"${model}\", \"instances\": [[${FEATURES}]]}" || echo "FAILED")
 
           if echo "$RESPONSE" | grep -q '"predictions"'; then
             echo "PASS: Model $model returned predictions"
