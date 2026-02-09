@@ -685,7 +685,7 @@ spec:
 
         NAMESPACE="$(params.namespace)"
 
-        if ! oc get service prometheus -n openshift-monitoring &>/dev/null; then
+        if ! oc get statefulset prometheus-k8s -n openshift-monitoring &>/dev/null; then
           echo "WARNING: Prometheus not found in openshift-monitoring"
           exit 0
         fi
@@ -996,15 +996,16 @@ spec:
 
         echo "=== Checking Prometheus ==="
 
-        if ! oc get deployment prometheus -n openshift-monitoring &>/dev/null; then
-          echo "WARNING: Prometheus deployment not found in openshift-monitoring"
+        # On OpenShift, Prometheus runs as a StatefulSet managed by cluster-monitoring-operator
+        if ! oc get statefulset prometheus-k8s -n openshift-monitoring &>/dev/null; then
+          echo "WARNING: Prometheus StatefulSet not found in openshift-monitoring"
           exit 0
         fi
 
         echo "PASS: Prometheus is deployed"
 
-        READY=$(oc get deployment prometheus -n openshift-monitoring -o jsonpath='{.status.readyReplicas}')
-        DESIRED=$(oc get deployment prometheus -n openshift-monitoring -o jsonpath='{.spec.replicas}')
+        READY=$(oc get statefulset prometheus-k8s -n openshift-monitoring -o jsonpath='{.status.readyReplicas}')
+        DESIRED=$(oc get statefulset prometheus-k8s -n openshift-monitoring -o jsonpath='{.spec.replicas}')
 
         if [[ "$READY" == "$DESIRED" ]]; then
           echo "PASS: Prometheus pods are ready ($READY/$DESIRED)"
@@ -1020,7 +1021,7 @@ spec:
 
         echo "=== Checking Prometheus Scrape Targets ==="
 
-        if ! oc get service prometheus -n openshift-monitoring &>/dev/null; then
+        if ! oc get service prometheus-k8s -n openshift-monitoring &>/dev/null; then
           echo "WARNING: Prometheus service not found"
           exit 0
         fi
