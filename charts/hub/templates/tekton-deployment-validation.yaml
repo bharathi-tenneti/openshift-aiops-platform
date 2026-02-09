@@ -636,15 +636,20 @@ spec:
 
         NAMESPACE="$(params.namespace)"
 
-        SERVICES=$(oc get inferenceservices -n "$NAMESPACE" \
-          -o jsonpath='{range .items[?(@.status.conditions[?(@.type=="Ready" && @.status=="True")])]}{.metadata.name}{"\n"}{end}')
+        ALL_SERVICES=$(oc get inferenceservices -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
 
-        if [[ -z "$SERVICES" ]]; then
-          echo "WARNING: No ready InferenceServices to test"
+        if [[ -z "$ALL_SERVICES" ]]; then
+          echo "WARNING: No InferenceServices to test"
           exit 0
         fi
 
-        for service in $SERVICES; do
+        for service in $ALL_SERVICES; do
+          READY=$(oc get inferenceservice "$service" -n "$NAMESPACE" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}')
+          if [[ "$READY" != "True" ]]; then
+            echo "WARNING: InferenceService $service is not Ready (status: $READY) — skipping inference test"
+            continue
+          fi
+
           PREDICTOR_URL=$(oc get inferenceservice "$service" -n "$NAMESPACE" -o jsonpath='{.status.url}')
 
           if [[ -z "$PREDICTOR_URL" ]]; then
